@@ -69,10 +69,13 @@
             <label class="slabel">From<input id="s-from" type="text" placeholder="London, NYC, CDG…" required /></label>
             <label class="slabel">To<input id="s-to" type="text" placeholder="Paris, Tokyo, DXB…" required /></label>
           </div>
-          <div class="srow">
+          <div class="srow srow--dates">
             <label class="slabel">Depart<input id="s-depart" type="date" required /></label>
             <label class="slabel">Return <span class="opt">(optional)</span><input id="s-return" type="date" /></label>
+          </div>
+          <div class="srow">
             <label class="slabel slabel--sm">Adults<input id="s-adults" type="number" value="1" min="1" max="9" /></label>
+            <label class="slabel slabel--sm">Children <span class="opt">(under 12)</span><input id="s-children" type="number" value="0" min="0" max="9" /></label>
           </div>
           <button type="submit" class="btn">Search flights →</button>
         </form>
@@ -170,10 +173,12 @@
       document.getElementById('results-wrap').style.display = 'none';
     }
 
-    function aviasalesUrl(from, to, dep, ret, pax) {
-      let path = `${from}${to}${dep}${pax}`;
+    function aviasalesUrl(from, to, dep, ret, adults, children) {
+      let path = `${from}${to}${dep}${adults}`;
       if (ret) path += ret;
-      return `https://www.aviasales.com/search/${path}?marker=${MARKER}`;
+      const params = new URLSearchParams({ marker: MARKER });
+      if (children > 0) params.set('children', children);
+      return `https://www.aviasales.com/search/${path}?${params}`;
     }
 
     function setStatus(msg) {
@@ -219,8 +224,8 @@
       });
     }
 
-    async function searchApi(from, to, dep, ret, pax) {
-      const fallback = aviasalesUrl(from, to, dep, ret, pax);
+    async function searchApi(from, to, dep, ret, adults, children) {
+      const fallback = aviasalesUrl(from, to, dep, ret, adults, children);
 
       if (!TOKEN || TOKEN === 'YOUR_TRAVELPAYOUTS_API_TOKEN') {
         window.open(fallback, '_blank');
@@ -236,6 +241,7 @@
         one_way: ret ? 'false' : 'true',
         page: 1, limit: 10, sorting: 'price',
         token: TOKEN,
+        ...(children > 0 ? { children } : {}),
       });
 
       try {
@@ -250,12 +256,13 @@
 
     function goStructured(e) {
       e.preventDefault();
-      const from = toIata(document.getElementById('s-from').value);
-      const to   = toIata(document.getElementById('s-to').value);
-      const dep  = fmtDate(document.getElementById('s-depart').value);
-      const ret  = document.getElementById('s-return').value ? fmtDate(document.getElementById('s-return').value) : '';
-      const pax  = document.getElementById('s-adults').value || 1;
-      searchApi(from, to, dep, ret, pax);
+      const from     = toIata(document.getElementById('s-from').value);
+      const to       = toIata(document.getElementById('s-to').value);
+      const dep      = fmtDate(document.getElementById('s-depart').value);
+      const ret      = document.getElementById('s-return').value ? fmtDate(document.getElementById('s-return').value) : '';
+      const adults   = parseInt(document.getElementById('s-adults').value) || 1;
+      const children = parseInt(document.getElementById('s-children').value) || 0;
+      searchApi(from, to, dep, ret, adults, children);
     }
 
     const MONTHS = { jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',
@@ -289,7 +296,7 @@
       const date = parseDate(text);
       const pax  = (text.match(/(\d+)\s*(?:adults?|people|persons?|passengers?)/i) || [])[1] || 1;
       if (from && to) {
-        searchApi(toIata(from), toIata(to), date, '', pax);
+        searchApi(toIata(from), toIata(to), date, '', pax, 0);
       } else {
         window.open(`https://www.aviasales.com/?marker=${MARKER}`, '_blank');
       }
