@@ -8,3 +8,6 @@ Tracked items deferred from the initial build.
 - [ ] **Skincare content is placeholder.** Confirm real product/positioning and refine copy.
 - [ ] **Analytics not set up.** Optionally add privacy-friendly analytics (e.g. Plausible/GoatCounter) later.
 - [ ] **No favicon asset beyond inline emoji.** Replace with a real brand favicon when available.
+- [ ] **Flight search returns cached prices only.** Travelpayouts `/v1/prices/cheap` returns historical cheapest prices per month, not real-time availability. Consider adding a note on the UI or upgrading to the async search API for live results.
+- [ ] **Free-text search parser is basic.** City extraction relies on simple regex. Works for clear inputs ("London to Rome") but can fail on ambiguous phrasing. Could improve with a proper NLP approach or autocomplete inputs.
+- [ ] **Hotel search not yet added.** Travel page only searches flights. Add a hotel search tab (Hotellook via Travelpayouts) when ready.
