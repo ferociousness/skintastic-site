@@ -264,9 +264,8 @@
         if (data.success && data.data) {
           for (const airline of Object.values(data.data)) {
             for (const [transferKey, ticket] of Object.entries(airline)) {
-              const expired  = ticket.expires_at && new Date(ticket.expires_at) < now;
               const departed = ticket.departure_at && new Date(ticket.departure_at) < now;
-              if (expired || departed) continue;
+              if (departed) continue;
               flights.push({ ...ticket, origin: from, destination: to, transfers: parseInt(transferKey) });
             }
           }
