@@ -25,11 +25,11 @@ jobs:
 
       - name: Inject config.js
         env:
-          TRAVELPAYOUTS_TOKEN: ${{ secrets.TRAVELPAYOUTS_TOKEN }}
+          API_PROXY_URL: ${{ secrets.API_PROXY_URL }}
         run: |
           cat > config.js <<EOF
           var SKINTASTIC_CONFIG = {
-            travelpayoutsToken: '$TRAVELPAYOUTS_TOKEN',
+            apiProxyUrl: '$API_PROXY_URL',
           };
           EOF
 

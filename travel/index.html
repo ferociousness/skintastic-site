@@ -137,8 +137,8 @@
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
 
-    const MARKER = '544179';
-    const TOKEN  = (window.SKINTASTIC_CONFIG || {}).travelpayoutsToken || '';
+    const MARKER   = '544179';
+    const PROXY    = (window.SKINTASTIC_CONFIG || {}).apiProxyUrl || '';
 
     const IATA = {
       'london': 'LON', 'paris': 'PAR', 'new york': 'NYC', 'nyc': 'NYC',
@@ -235,7 +235,7 @@
     async function searchApi(from, to, dep, ret, adults, children) {
       const fallback = aviasalesUrl(from, to, dep, ret, adults, children);
 
-      if (!TOKEN || TOKEN === 'YOUR_TRAVELPAYOUTS_API_TOKEN') {
+      if (!PROXY) {
         window.open(fallback, '_blank');
         return;
       }
@@ -247,12 +247,11 @@
         origin: from, destination: to,
         currency: 'usd',
         depart_date: toYearMonth(dep),
-        token: TOKEN,
       });
       if (ret) params.set('return_date', toYearMonth(ret));
 
       try {
-        const res  = await fetch(`https://api.travelpayouts.com/v1/prices/cheap?${params}`);
+        const res  = await fetch(`${PROXY}?${params}`);
         const data = await res.json();
 
         // v1 response: { data: { AIRLINE: { "0": { price, departure_at, … }, "1": … } } }
