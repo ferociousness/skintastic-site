@@ -92,6 +92,48 @@ a { color: inherit; text-decoration: none; }
 }
 .bottle-body span { font-size: 2.4rem; color: var(--accent); }
 
+/* Search */
+.search {
+  max-width: var(--max); margin: 0 auto;
+  padding: clamp(30px, 5vw, 60px) clamp(20px, 5vw, 56px);
+}
+.search h2 {
+  font-size: clamp(1.8rem, 4vw, 2.6rem); letter-spacing: -0.02em; margin-bottom: 24px;
+}
+.search-tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+.stab {
+  padding: 9px 22px; border-radius: 999px; border: 1.5px solid rgba(43,38,34,0.15);
+  background: transparent; font-size: 0.95rem; font-weight: 600; cursor: pointer;
+  color: var(--muted); transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.stab--active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.stab:not(.stab--active):hover { border-color: var(--accent); color: var(--ink); }
+.spanel {
+  background: var(--card); border-radius: var(--radius); padding: 28px 26px;
+  box-shadow: var(--shadow); border: 1px solid rgba(43,38,34,0.05);
+}
+.spanel--hidden { display: none; }
+.srow { display: flex; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
+.slabel {
+  display: flex; flex-direction: column; gap: 6px;
+  font-size: 0.85rem; font-weight: 600; color: var(--muted); flex: 1; min-width: 140px;
+}
+.slabel--sm { flex: 0 0 90px; min-width: 90px; }
+.opt { font-weight: 400; }
+.slabel input {
+  padding: 11px 14px; font-size: 0.97rem;
+  border: 1.5px solid rgba(43,38,34,0.15); border-radius: 10px; background: var(--bg);
+  color: var(--ink);
+}
+.slabel input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--ring); }
+.spanel textarea {
+  width: 100%; padding: 14px; font-size: 0.97rem; font-family: inherit;
+  border: 1.5px solid rgba(43,38,34,0.15); border-radius: 10px;
+  background: var(--bg); color: var(--ink); resize: vertical; margin-bottom: 14px;
+}
+.spanel textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--ring); }
+.spanel .btn { border: none; cursor: pointer; font-family: inherit; font-size: 1rem; }
+
 /* Benefits */
 .benefits {
   max-width: var(--max); margin: 0 auto;

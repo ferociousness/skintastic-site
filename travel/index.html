@@ -56,6 +56,36 @@
       </div>
     </section>
 
+    <section id="search" class="search">
+      <h2>Find your trip</h2>
+      <div class="search-tabs">
+        <button class="stab stab--active" onclick="switchTab('structured', this)">Structured</button>
+        <button class="stab" onclick="switchTab('freetext', this)">Free text</button>
+      </div>
+
+      <div class="spanel" id="panel-structured">
+        <form onsubmit="goStructured(event)">
+          <div class="srow">
+            <label class="slabel">From<input id="s-from" type="text" placeholder="London, NYC, CDG…" required /></label>
+            <label class="slabel">To<input id="s-to" type="text" placeholder="Paris, Tokyo, DXB…" required /></label>
+          </div>
+          <div class="srow">
+            <label class="slabel">Depart<input id="s-depart" type="date" required /></label>
+            <label class="slabel">Return <span class="opt">(optional)</span><input id="s-return" type="date" /></label>
+            <label class="slabel slabel--sm">Adults<input id="s-adults" type="number" value="1" min="1" max="9" /></label>
+          </div>
+          <button type="submit" class="btn">Search flights →</button>
+        </form>
+      </div>
+
+      <div class="spanel spanel--hidden" id="panel-freetext">
+        <form onsubmit="goFreeText(event)">
+          <textarea id="ft-input" rows="3" placeholder='e.g. "London to Rome in August, 2 people" or "beach holiday next month, family of 4"'></textarea>
+          <button type="submit" class="btn">Find trips →</button>
+        </form>
+      </div>
+    </section>
+
     <section id="benefits" class="benefits">
       <article class="card">
         <div class="icon">🧳</div>
@@ -97,6 +127,89 @@
 
   <script>
     document.getElementById('year').textContent = new Date().getFullYear();
+
+    const MARKER = '544179';
+
+    const IATA = {
+      'london': 'LON', 'paris': 'PAR', 'new york': 'NYC', 'nyc': 'NYC',
+      'los angeles': 'LAX', 'la': 'LAX', 'chicago': 'CHI',
+      'tokyo': 'TYO', 'dubai': 'DXB', 'rome': 'ROM', 'barcelona': 'BCN',
+      'amsterdam': 'AMS', 'berlin': 'BER', 'madrid': 'MAD', 'lisbon': 'LIS',
+      'milan': 'MIL', 'sydney': 'SYD', 'singapore': 'SIN', 'bangkok': 'BKK',
+      'istanbul': 'IST', 'tel aviv': 'TLV', 'miami': 'MIA', 'toronto': 'YTO',
+      'hong kong': 'HKG', 'bali': 'DPS', 'cancun': 'CUN', 'athens': 'ATH',
+      'prague': 'PRG', 'vienna': 'VIE', 'munich': 'MUC', 'zurich': 'ZRH',
+      'brussels': 'BRU', 'copenhagen': 'CPH', 'stockholm': 'STO', 'oslo': 'OSL',
+      'helsinki': 'HEL', 'moscow': 'MOW', 'seoul': 'SEL', 'beijing': 'BJS',
+      'shanghai': 'SHA', 'mumbai': 'BOM', 'delhi': 'DEL', 'cairo': 'CAI',
+      'dublin': 'DUB', 'edinburgh': 'EDI', 'manchester': 'MAN',
+    };
+
+    function toIata(input) {
+      const key = input.trim().toLowerCase();
+      return IATA[key] || input.trim().toUpperCase().slice(0, 3);
+    }
+
+    function fmtDate(dateStr) {
+      const p = dateStr.split('-');
+      return p[2] + p[1];
+    }
+
+    function switchTab(tab, btn) {
+      document.querySelectorAll('.stab').forEach(b => b.classList.remove('stab--active'));
+      document.querySelectorAll('.spanel').forEach(p => p.classList.add('spanel--hidden'));
+      btn.classList.add('stab--active');
+      document.getElementById('panel-' + tab).classList.remove('spanel--hidden');
+    }
+
+    function goStructured(e) {
+      e.preventDefault();
+      const from = toIata(document.getElementById('s-from').value);
+      const to   = toIata(document.getElementById('s-to').value);
+      const dep  = fmtDate(document.getElementById('s-depart').value);
+      const ret  = document.getElementById('s-return').value;
+      const pax  = document.getElementById('s-adults').value || 1;
+      let path = `${from}${to}${dep}${pax}`;
+      if (ret) path += fmtDate(ret);
+      window.open(`https://www.aviasales.com/search/${path}?marker=${MARKER}`, '_blank');
+    }
+
+    const MONTHS = { jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',
+                     jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12' };
+
+    function parseDate(text) {
+      const dm = text.match(/(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i);
+      const md = text.match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*\s+(\d{1,2})/i);
+      const mo = text.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\w*/i);
+      if (dm) return dm[1].padStart(2,'0') + MONTHS[dm[2].slice(0,3).toLowerCase()];
+      if (md) return md[2].padStart(2,'0') + MONTHS[md[1].slice(0,3).toLowerCase()];
+      if (mo) return '01' + MONTHS[mo[1].slice(0,3).toLowerCase()];
+      const d = new Date(); d.setMonth(d.getMonth() + 3);
+      return String(d.getDate()).padStart(2,'0') + String(d.getMonth()+1).padStart(2,'0');
+    }
+
+    function parseCity(text, dir) {
+      const pats = dir === 'from'
+        ? [/from\s+([a-z][a-z\s]{1,20}?)(?:\s+to\b|\s+in\b|,|$)/i]
+        : [/to\s+([a-z][a-z\s]{1,20}?)(?:\s+in\b|\s+on\b|\s+for\b|,|$)/i,
+           /visit(?:ing)?\s+([a-z][a-z\s]{1,20}?)(?:\s+in\b|,|$)/i];
+      for (const p of pats) { const m = text.match(p); if (m) return m[1].trim(); }
+      return null;
+    }
+
+    function goFreeText(e) {
+      e.preventDefault();
+      const text = document.getElementById('ft-input').value;
+      const from = parseCity(text, 'from');
+      const to   = parseCity(text, 'to');
+      const date = parseDate(text);
+      const pax  = (text.match(/(\d+)\s*(?:adults?|people|persons?|passengers?)/i) || [])[1] || 1;
+      if (from && to) {
+        window.open(`https://www.aviasales.com/search/${toIata(from)}${toIata(to)}${date}${pax}?marker=${MARKER}`, '_blank');
+      } else {
+        window.open(`https://www.aviasales.com/?marker=${MARKER}`, '_blank');
+      }
+    }
   </script>
 </body>
 </html>
