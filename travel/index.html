@@ -197,13 +197,15 @@
         return;
       }
 
-      setStatus(`${flights.length} deal${flights.length > 1 ? 's' : ''} found — prices from Travelpayouts cache, click Book to confirm.`);
+      setStatus(`${flights.length} deal${flights.length > 1 ? 's' : ''} found — indicative prices, click Book to confirm availability.`);
 
       flights.forEach(f => {
         const dep  = new Date(f.departure_at);
         const date = dep.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-        const dur  = f.duration ? `${Math.floor(f.duration / 60)}h ${f.duration % 60}m` : '';
-        const stops = f.transfers === 0 ? 'Direct' : `${f.transfers} stop${f.transfers > 1 ? 's' : ''}`;
+        const mins = f.duration_to || f.duration;
+        const dur  = mins ? `${Math.floor(mins / 60)}h ${mins % 60}m` : '';
+        const t = typeof f.transfers === 'number' ? f.transfers : 0;
+        const stops = t === 0 ? 'Direct' : `${t} stop${t > 1 ? 's' : ''}`;
         const ddmm  = String(dep.getDate()).padStart(2,'0') + String(dep.getMonth()+1).padStart(2,'0');
         const bookUrl = `https://www.aviasales.com/search/${f.origin}${f.destination}${ddmm}1?marker=${MARKER}`;
 
@@ -214,7 +216,7 @@
           <div class="rc-meta">
             <span>${date}</span>
             ${dur ? `<span>${dur}</span>` : ''}
-            <span class="rc-stops${f.transfers === 0 ? ' rc-direct' : ''}">${stops}</span>
+            <span class="rc-stops${t === 0 ? ' rc-direct' : ''}">${stops}</span>
           </div>
           <div class="rc-foot">
             <span class="rc-price">$${f.price}</span>
@@ -254,12 +256,13 @@
         const res  = await fetch(`${PROXY}?${params}`);
         const data = await res.json();
 
-        // v1 response: { data: { AIRLINE: { "0": { price, departure_at, … }, "1": … } } }
+        // v1 response: { data: { AIRLINE: { "0": {…}, "1": {…} } } }
+        // outer key = airline code, inner key = number of transfers
         const flights = [];
         if (data.success && data.data) {
           for (const airline of Object.values(data.data)) {
-            for (const ticket of Object.values(airline)) {
-              flights.push({ ...ticket, origin: from, destination: to });
+            for (const [transferKey, ticket] of Object.entries(airline)) {
+              flights.push({ ...ticket, origin: from, destination: to, transfers: parseInt(transferKey) });
             }
           }
           flights.sort((a, b) => a.price - b.price);
