@@ -40,10 +40,10 @@ Search results are fetched from the **Travelpayouts Data API** via a **Cloudflar
 
 ### Cloudflare Worker
 
-- Worker name: `skintastic-api` (account: aegon-ta123)
-- URL: `https://skintastic-api.aegon-ta123.workers.dev`
+- Worker name: `skintastic-api`
+- URL: stored in the `API_PROXY_URL` GitHub Actions secret (see Cloudflare dashboard for the actual URL)
 - Secret on Worker: `TRAVELPAYOUTS_TOKEN` — the Travelpayouts partner API token
-- GitHub secret: `API_PROXY_URL` = the Worker URL above
+- GitHub secret: `API_PROXY_URL` = the Worker URL
 
 The Travelpayouts affiliate marker (`544179`) is embedded in the tracking script in `<head>` of every page and in Aviasales booking deep links.
 
