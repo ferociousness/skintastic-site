@@ -84,6 +84,11 @@
           <button type="submit" class="btn">Find trips →</button>
         </form>
       </div>
+
+      <div id="results-wrap" class="results-wrap" style="display:none">
+        <p id="results-status" class="results-status"></p>
+        <div id="results" class="results"></div>
+      </div>
     </section>
 
     <section id="benefits" class="benefits">
@@ -130,6 +135,7 @@
     document.getElementById('year').textContent = new Date().getFullYear();
 
     const MARKER = '544179';
+    const TOKEN  = (window.SKINTASTIC_CONFIG || {}).travelpayoutsToken || '';
 
     const IATA = {
       'london': 'LON', 'paris': 'PAR', 'new york': 'NYC', 'nyc': 'NYC',
@@ -161,6 +167,85 @@
       document.querySelectorAll('.spanel').forEach(p => p.classList.add('spanel--hidden'));
       btn.classList.add('stab--active');
       document.getElementById('panel-' + tab).classList.remove('spanel--hidden');
+      document.getElementById('results-wrap').style.display = 'none';
+    }
+
+    function aviasalesUrl(from, to, dep, ret, pax) {
+      let path = `${from}${to}${dep}${pax}`;
+      if (ret) path += ret;
+      return `https://www.aviasales.com/search/${path}?marker=${MARKER}`;
+    }
+
+    function setStatus(msg) {
+      document.getElementById('results-status').textContent = msg;
+      document.getElementById('results-wrap').style.display = 'block';
+    }
+
+    function renderResults(flights, fallbackUrl) {
+      const wrap = document.getElementById('results-wrap');
+      const box  = document.getElementById('results');
+      box.innerHTML = '';
+
+      if (!flights.length) {
+        setStatus('No cached prices found for this route — searching Aviasales directly.');
+        setTimeout(() => window.open(fallbackUrl, '_blank'), 600);
+        return;
+      }
+
+      setStatus(`${flights.length} deal${flights.length > 1 ? 's' : ''} found — prices from Travelpayouts cache, click Book to confirm.`);
+
+      flights.forEach(f => {
+        const dep  = new Date(f.departure_at);
+        const date = dep.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+        const dur  = f.duration ? `${Math.floor(f.duration / 60)}h ${f.duration % 60}m` : '';
+        const stops = f.transfers === 0 ? 'Direct' : `${f.transfers} stop${f.transfers > 1 ? 's' : ''}`;
+        const ddmm  = String(dep.getDate()).padStart(2,'0') + String(dep.getMonth()+1).padStart(2,'0');
+        const bookUrl = `https://www.aviasales.com/search/${f.origin}${f.destination}${ddmm}1?marker=${MARKER}`;
+
+        const card = document.createElement('div');
+        card.className = 'rc';
+        card.innerHTML = `
+          <div class="rc-route">${f.origin} <span class="rc-arr">→</span> ${f.destination}</div>
+          <div class="rc-meta">
+            <span>${date}</span>
+            ${dur ? `<span>${dur}</span>` : ''}
+            <span class="rc-stops${f.transfers === 0 ? ' rc-direct' : ''}">${stops}</span>
+          </div>
+          <div class="rc-foot">
+            <span class="rc-price">$${f.price}</span>
+            <a href="${bookUrl}" target="_blank" rel="noopener" class="rc-book">Book →</a>
+          </div>`;
+        box.appendChild(card);
+      });
+    }
+
+    async function searchApi(from, to, dep, ret, pax) {
+      const fallback = aviasalesUrl(from, to, dep, ret, pax);
+
+      if (!TOKEN || TOKEN === 'YOUR_TRAVELPAYOUTS_API_TOKEN') {
+        window.open(fallback, '_blank');
+        return;
+      }
+
+      setStatus('Searching…');
+      document.getElementById('results').innerHTML = '';
+
+      const params = new URLSearchParams({
+        origin: from, destination: to,
+        currency: 'usd', period_type: 'year',
+        one_way: ret ? 'false' : 'true',
+        page: 1, limit: 10, sorting: 'price',
+        token: TOKEN,
+      });
+
+      try {
+        const res  = await fetch(`https://api.travelpayouts.com/v2/prices/latest?${params}`);
+        const data = await res.json();
+        renderResults(data.success ? (data.data || []) : [], fallback);
+      } catch {
+        setStatus('Could not load prices — opening Aviasales directly.');
+        setTimeout(() => window.open(fallback, '_blank'), 600);
+      }
     }
 
     function goStructured(e) {
@@ -168,11 +253,9 @@
       const from = toIata(document.getElementById('s-from').value);
       const to   = toIata(document.getElementById('s-to').value);
       const dep  = fmtDate(document.getElementById('s-depart').value);
-      const ret  = document.getElementById('s-return').value;
+      const ret  = document.getElementById('s-return').value ? fmtDate(document.getElementById('s-return').value) : '';
       const pax  = document.getElementById('s-adults').value || 1;
-      let path = `${from}${to}${dep}${pax}`;
-      if (ret) path += fmtDate(ret);
-      window.open(`https://www.aviasales.com/search/${path}?marker=${MARKER}`, '_blank');
+      searchApi(from, to, dep, ret, pax);
     }
 
     const MONTHS = { jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',
@@ -206,7 +289,7 @@
       const date = parseDate(text);
       const pax  = (text.match(/(\d+)\s*(?:adults?|people|persons?|passengers?)/i) || [])[1] || 1;
       if (from && to) {
-        window.open(`https://www.aviasales.com/search/${toIata(from)}${toIata(to)}${date}${pax}?marker=${MARKER}`, '_blank');
+        searchApi(toIata(from), toIata(to), date, '', pax);
       } else {
         window.open(`https://www.aviasales.com/?marker=${MARKER}`, '_blank');
       }
