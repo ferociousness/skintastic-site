@@ -197,7 +197,7 @@
         return;
       }
 
-      setStatus(`${flights.length} deal${flights.length > 1 ? 's' : ''} found — indicative prices, click Book to confirm availability.`);
+      setStatus(`${flights.length} price hint${flights.length > 1 ? 's' : ''} found — click Search to see live availability on Aviasales.`);
 
       flights.forEach(f => {
         const dep  = new Date(f.departure_at);
@@ -207,7 +207,7 @@
         const t = typeof f.transfers === 'number' ? f.transfers : 0;
         const stops = t === 0 ? 'Direct' : `${t} stop${t > 1 ? 's' : ''}`;
         const ddmm  = String(dep.getDate()).padStart(2,'0') + String(dep.getMonth()+1).padStart(2,'0');
-        const bookUrl = `https://www.aviasales.com/search/${f.origin}${f.destination}${ddmm}1?marker=${MARKER}`;
+        const searchUrl = `https://www.aviasales.com/search/${f.origin}${f.destination}${ddmm}1?marker=${MARKER}`;
 
         const card = document.createElement('div');
         card.className = 'rc';
@@ -217,10 +217,11 @@
             <span>${date}</span>
             ${dur ? `<span>${dur}</span>` : ''}
             <span class="rc-stops${t === 0 ? ' rc-direct' : ''}">${stops}</span>
+            ${f.airline ? `<span>${f.airline}</span>` : ''}
           </div>
           <div class="rc-foot">
-            <span class="rc-price">$${f.price}</span>
-            <a href="${bookUrl}" target="_blank" rel="noopener" class="rc-book">Book →</a>
+            <span class="rc-price">from $${f.price}</span>
+            <a href="${searchUrl}" target="_blank" rel="noopener" class="rc-book">Search →</a>
           </div>`;
         box.appendChild(card);
       });
@@ -258,10 +259,14 @@
 
         // v1 response: { data: { AIRLINE: { "0": {…}, "1": {…} } } }
         // outer key = airline code, inner key = number of transfers
+        const now = new Date();
         const flights = [];
         if (data.success && data.data) {
           for (const airline of Object.values(data.data)) {
             for (const [transferKey, ticket] of Object.entries(airline)) {
+              const expired  = ticket.expires_at && new Date(ticket.expires_at) < now;
+              const departed = ticket.departure_at && new Date(ticket.departure_at) < now;
+              if (expired || departed) continue;
               flights.push({ ...ticket, origin: from, destination: to, transfers: parseInt(transferKey) });
             }
           }
