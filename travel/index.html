@@ -224,6 +224,14 @@
       });
     }
 
+    // dep/ret are DDMM strings; convert to YYYY-MM for the API
+    function toYearMonth(ddmm) {
+      if (!ddmm) return '';
+      const dd = ddmm.slice(0, 2), mm = ddmm.slice(2, 4);
+      const year = new Date().getFullYear() + (parseInt(mm) < new Date().getMonth() + 1 ? 1 : 0);
+      return `${year}-${mm}`;
+    }
+
     async function searchApi(from, to, dep, ret, adults, children) {
       const fallback = aviasalesUrl(from, to, dep, ret, adults, children);
 
@@ -237,17 +245,27 @@
 
       const params = new URLSearchParams({
         origin: from, destination: to,
-        currency: 'usd', period_type: 'year',
-        one_way: ret ? 'false' : 'true',
-        page: 1, limit: 10, sorting: 'price',
+        currency: 'usd',
+        depart_date: toYearMonth(dep),
         token: TOKEN,
-        ...(children > 0 ? { children } : {}),
       });
+      if (ret) params.set('return_date', toYearMonth(ret));
 
       try {
-        const res  = await fetch(`https://api.travelpayouts.com/v2/prices/latest?${params}`);
+        const res  = await fetch(`https://api.travelpayouts.com/v1/prices/cheap?${params}`);
         const data = await res.json();
-        renderResults(data.success ? (data.data || []) : [], fallback);
+
+        // v1 response: { data: { AIRLINE: { "0": { price, departure_at, … }, "1": … } } }
+        const flights = [];
+        if (data.success && data.data) {
+          for (const airline of Object.values(data.data)) {
+            for (const ticket of Object.values(airline)) {
+              flights.push({ ...ticket, origin: from, destination: to });
+            }
+          }
+          flights.sort((a, b) => a.price - b.price);
+        }
+        renderResults(flights.slice(0, 10), fallback);
       } catch {
         setStatus('Could not load prices — opening Aviasales directly.');
         setTimeout(() => window.open(fallback, '_blank'), 600);
