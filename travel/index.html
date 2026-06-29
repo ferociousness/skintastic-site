@@ -173,12 +173,20 @@
       document.getElementById('results-wrap').style.display = 'none';
     }
 
+    // Aviasales slug order: origin + departDDMM + dest + [returnDDMM] + passengers,
+    // where the passenger block is adults followed by children (e.g. 2 adults + 1
+    // child -> "21"). dep/ret are DDMM strings.
+    function aviasalesSlug({ from, dep, to, ret, adults, children }) {
+      let slug = `${from}${dep}${to}`;
+      if (ret) slug += ret;
+      slug += adults;
+      if (children > 0) slug += children;
+      return slug;
+    }
+
     function aviasalesUrl(from, to, dep, ret, adults, children) {
-      let path = `${from}${to}${dep}${adults}`;
-      if (ret) path += ret;
-      const params = new URLSearchParams({ marker: MARKER });
-      if (children > 0) params.set('children', children);
-      return `https://www.aviasales.com/search/${path}?${params}`;
+      const slug = aviasalesSlug({ from, dep, to, ret, adults, children });
+      return `https://www.aviasales.com/search/${slug}?marker=${MARKER}`;
     }
 
     function setStatus(msg) {
@@ -186,7 +194,7 @@
       document.getElementById('results-wrap').style.display = 'block';
     }
 
-    function renderResults(flights, fallbackUrl) {
+    function renderResults(flights, fallbackUrl, ctx) {
       const wrap = document.getElementById('results-wrap');
       const box  = document.getElementById('results');
       box.innerHTML = '';
@@ -207,7 +215,12 @@
         const t = typeof f.transfers === 'number' ? f.transfers : 0;
         const stops = t === 0 ? 'Direct' : `${t} stop${t > 1 ? 's' : ''}`;
         const ddmm  = String(dep.getDate()).padStart(2,'0') + String(dep.getMonth()+1).padStart(2,'0');
-        const searchUrl = `https://www.aviasales.com/search/${f.origin}${f.destination}${ddmm}1?marker=${MARKER}`;
+        // Reuse the searched trip (return date + passengers) for this flight's date.
+        const slug = aviasalesSlug({
+          from: f.origin, dep: ddmm, to: f.destination,
+          ret: ctx.ret, adults: ctx.adults, children: ctx.children,
+        });
+        const searchUrl = `https://www.aviasales.com/search/${slug}?marker=${MARKER}`;
 
         const card = document.createElement('div');
         card.className = 'rc';
@@ -271,7 +284,7 @@
           }
           flights.sort((a, b) => a.price - b.price);
         }
-        renderResults(flights.slice(0, 10), fallback);
+        renderResults(flights.slice(0, 10), fallback, { ret, adults, children });
       } catch {
         setStatus('Could not load prices — opening Aviasales directly.');
         setTimeout(() => window.open(fallback, '_blank'), 600);
