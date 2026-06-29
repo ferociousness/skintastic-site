@@ -194,31 +194,55 @@
       document.getElementById('results-wrap').style.display = 'block';
     }
 
-    function renderResults(flights, fallbackUrl, ctx) {
-      const wrap = document.getElementById('results-wrap');
-      const box  = document.getElementById('results');
+    // Read the date as written in the ticket's own local time (the YYYY-MM-DD prefix)
+    // rather than via the runtime timezone, so the deep-link date matches the priced
+    // departure and never drifts by a day. Returns DDMM + a "7 Aug" label.
+    function parseLocalDate(iso) {
+      const [y, m, d] = iso.slice(0, 10).split('-');
+      const label = new Date(`${y}-${m}-${d}T12:00:00`)
+        .toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      return { ddmm: d + m, label };
+    }
+
+    function renderResults(flights, fallbackUrl) {
+      const box = document.getElementById('results');
       box.innerHTML = '';
 
       if (!flights.length) {
-        setStatus('No cached prices found for this route — searching Aviasales directly.');
+        setStatus('No cached prices for this route — opening a live Aviasales search for your dates.');
         setTimeout(() => window.open(fallbackUrl, '_blank'), 600);
         return;
       }
 
-      setStatus(`${flights.length} price hint${flights.length > 1 ? 's' : ''} found — click Search to see live availability on Aviasales.`);
+      setStatus(`${flights.length} cached round-trip${flights.length > 1 ? 's' : ''} — "from" prices are for 1 adult and may have changed since they were found.`);
+
+      // A live search of the traveler's own dates and passengers, kept separate from
+      // the cached price hints below (each of which reproduces its own exact itinerary).
+      const exact = document.createElement('a');
+      exact.className = 'rc-exact';
+      exact.href = fallbackUrl;
+      exact.target = '_blank';
+      exact.rel = 'noopener';
+      exact.textContent = 'Search my exact dates & travelers →';
+      box.appendChild(exact);
+
+      const now = new Date();
 
       flights.forEach(f => {
-        const dep  = new Date(f.departure_at);
-        const date = dep.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-        const mins = f.duration_to || f.duration;
-        const dur  = mins ? `${Math.floor(mins / 60)}h ${mins % 60}m` : '';
-        const t = typeof f.transfers === 'number' ? f.transfers : 0;
+        const out   = parseLocalDate(f.departure_at);
+        const back  = f.return_at ? parseLocalDate(f.return_at) : null;
+        const dates = back ? `${out.label} → ${back.label}` : out.label;
+        const mins  = f.duration_to || f.duration;
+        const dur   = mins ? `${Math.floor(mins / 60)}h ${mins % 60}m` : '';
+        const t     = typeof f.transfers === 'number' ? f.transfers : 0;
         const stops = t === 0 ? 'Direct' : `${t} stop${t > 1 ? 's' : ''}`;
-        const ddmm  = String(dep.getDate()).padStart(2,'0') + String(dep.getMonth()+1).padStart(2,'0');
-        // Reuse the searched trip (return date + passengers) for this flight's date.
+        const stale = f.expires_at && new Date(f.expires_at) < now;
+
+        // Reproduce the EXACT priced itinerary — same dates, same round/one-way shape,
+        // 1 adult — so the Aviasales page opens on the trip this price belongs to.
         const slug = aviasalesSlug({
-          from: f.origin, dep: ddmm, to: f.destination,
-          ret: ctx.ret, adults: ctx.adults, children: ctx.children,
+          from: f.origin, dep: out.ddmm, to: f.destination,
+          ret: back ? back.ddmm : '', adults: 1, children: 0,
         });
         const searchUrl = `https://www.aviasales.com/search/${slug}?marker=${MARKER}`;
 
@@ -227,14 +251,18 @@
         card.innerHTML = `
           <div class="rc-route">${f.origin} <span class="rc-arr">→</span> ${f.destination}</div>
           <div class="rc-meta">
-            <span>${date}</span>
+            <span>${dates}</span>
             ${dur ? `<span>${dur}</span>` : ''}
             <span class="rc-stops${t === 0 ? ' rc-direct' : ''}">${stops}</span>
             ${f.airline ? `<span>${f.airline}</span>` : ''}
           </div>
+          ${stale ? '<div class="rc-stale">cached price — may have changed</div>' : ''}
           <div class="rc-foot">
-            <span class="rc-price">from $${f.price}</span>
-            <a href="${searchUrl}" target="_blank" rel="noopener" class="rc-book">Search →</a>
+            <div>
+              <span class="rc-price">from $${f.price}</span>
+              <span class="rc-sub">${back ? 'round trip' : 'one way'} · 1 adult</span>
+            </div>
+            <a href="${searchUrl}" target="_blank" rel="noopener" class="rc-book">View →</a>
           </div>`;
         box.appendChild(card);
       });
@@ -270,21 +298,22 @@
         const res  = await fetch(`${PROXY}?${params}`);
         const data = await res.json();
 
-        // v1 response: { data: { AIRLINE: { "0": {…}, "1": {…} } } }
-        // outer key = airline code, inner key = number of transfers
+        // v1 cheap response: { data: { DEST: { "0": {…direct}, "1": {…1 change} } } }
+        // outer key = destination IATA, inner key = number of changes (== transfers).
+        // Each ticket is a round trip (has return_at); price is the 1-adult total.
         const now = new Date();
         const flights = [];
         if (data.success && data.data) {
-          for (const airline of Object.values(data.data)) {
-            for (const [transferKey, ticket] of Object.entries(airline)) {
+          for (const byChanges of Object.values(data.data)) {
+            for (const [changes, ticket] of Object.entries(byChanges)) {
               const departed = ticket.departure_at && new Date(ticket.departure_at) < now;
               if (departed) continue;
-              flights.push({ ...ticket, origin: from, destination: to, transfers: parseInt(transferKey) });
+              flights.push({ ...ticket, origin: from, destination: to, transfers: parseInt(changes) });
             }
           }
           flights.sort((a, b) => a.price - b.price);
         }
-        renderResults(flights.slice(0, 10), fallback, { ret, adults, children });
+        renderResults(flights.slice(0, 10), fallback);
       } catch {
         setStatus('Could not load prices — opening Aviasales directly.');
         setTimeout(() => window.open(fallback, '_blank'), 600);
