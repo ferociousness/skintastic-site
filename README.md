@@ -15,7 +15,9 @@ python3 -m http.server 8000
 |------|---------|
 | `index.html` | Skincare landing page |
 | `styles.css` | Shared styles for all pages |
-| `travel/index.html` | Travel landing page (blue theme) with flight search |
+| `travel/index.html` | TLV deals board + demoted search |
+| `travel/board.js` | Loads `/travel/deals.json`, party slugs, bag line, analytics events |
+| `travel/deals.json` | Daily public feed (pushed from DealsScouter CI). Never `feed_link`. |
 | `worker.js` | Cloudflare Worker source — CORS proxy for Travelpayouts API |
 | `config.js` | **Gitignored.** Local config (apiProxyUrl). Copy from `config.example.js` |
 | `config.example.js` | Config template — commit this, not `config.js` |
@@ -29,6 +31,27 @@ Pushes to `main` trigger the **Deploy to GitHub Pages** GitHub Actions workflow,
 2. Uploads the full site (including the generated `config.js`) to GitHub Pages
 
 Do **not** use the legacy "Deploy from branch" Pages setting — source must be **GitHub Actions**.
+
+## Deal board feed
+
+`/travel` always fetches same-origin `travel/deals.json` (not a GitHub raw URL).
+The private scanner repo (`AharonR/DealsScouter`) copies a **stripped** file here
+after each daily scan (`SKINTASTIC_DEPLOY_KEY` write key on this repo). Contract:
+`docs/BOARD_FEED.md` in DealsScouter. Path digits on `deep_link` must match
+top-level `party`. The party picker reuses localStorage only when
+`generated_at` matches the feed.
+
+Do not commit `feed_link`, tokens, or `.env`. If a scan's public file is missing,
+CI leaves yesterday's `deals.json` in place. Hand commits must `git add`
+`travel/board.js` and `travel/deals.json` — they may be untracked.
+
+## Email and analytics
+
+- **Buttondown** header form on `/travel` (`embed-subscribe/skintastic`). Set the
+  publication From/reply to `hello@skintastic.site` once IONOS forwarding works.
+  Do not send a digest until at least one real subscriber exists.
+- **GoatCounter** site `skintastic.goatcounter.com`. Custom events: `deal_open`,
+  `bag_hint_shown`, `email_submit`.
 
 ## Travelpayouts integration
 
